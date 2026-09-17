@@ -28,6 +28,7 @@
     --accent-2:#a855f7;
     --accent-soft:#efe9fe;
     --danger:#e5484d;
+    --danger-soft:#fbe3e4;
     --ok:#12a594;
     --radius:16px;
     --shadow:0 1px 2px rgba(30,25,60,.06), 0 8px 24px rgba(30,25,60,.06);
@@ -203,10 +204,28 @@
   .citem-sub .subfield{flex:1;max-width:150px;border:none;background:var(--canvas);border-radius:8px;padding:8px 10px;outline:none;color:var(--ink);font-size:13px}
   .item-total{display:flex;justify-content:space-between;align-items:center;background:var(--accent-soft);color:var(--accent);border-radius:12px;padding:12px 15px;font-weight:750;margin-top:4px}
   .item-total .amt{font-size:18px;font-weight:800}
-  .taskdate{display:flex;gap:8px;margin:4px 0 14px}
-  .taskdate button{flex:1;padding:11px;border-radius:12px;border:1px solid var(--line);background:var(--surface);
+  .sheettable-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;margin-top:6px}
+  .sheettable{display:grid}
+  .sheettable .hcell{background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:12.5px;
+    padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;white-space:nowrap}
+  .sheettable .cell{padding:6px 8px;border-bottom:1px solid var(--line);display:flex;align-items:center;min-width:0}
+  .sheettable .handle{position:sticky;left:0;z-index:2;background:var(--surface);justify-content:center;padding:0}
+  .sheettable .addcol{position:sticky;right:0;z-index:2;cursor:pointer}
+  .sheettable .colhead{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .sheettable .coledit{opacity:.55;flex:0 0 auto;display:flex}
+  .sheettable .cell{gap:6px}
+  .sheettable .signtoggle{flex:0 0 auto;width:24px;height:24px;border-radius:50%;
+    background:var(--accent-soft);color:var(--accent);font-weight:800;font-size:14px;line-height:1;
+    display:flex;align-items:center;justify-content:center}
+  .sheettable .signtoggle.neg{background:var(--danger-soft);color:var(--danger)}
+  .sheettable input.txt2,.sheettable input.num{width:100%;border:none;background:none;outline:none;color:var(--ink);font-size:14px;min-width:110px}
+  .sheettable input.num{font-weight:700;text-align:right}
+  .sheettable .rowdel{width:30px;height:30px;border-radius:9px;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .sheettable .totalrow{background:var(--accent-soft);font-weight:800}
+  .modetoggle{display:flex;gap:8px}
+  .modetoggle button{flex:1;padding:11px;border-radius:12px;border:1px solid var(--line);background:var(--surface);
     font-weight:700;color:var(--ink-soft)}
-  .taskdate button.on{background:var(--accent);color:#fff;border-color:transparent}
+  .modetoggle button.on{background:var(--accent);color:#fff;border-color:transparent}
 
   /* meta editor section */
   .metaed{margin-top:22px;display:flex;flex-direction:column;gap:16px}
@@ -338,6 +357,7 @@
   <button data-new="text"><span class="ic" style="background:#6d48e5">✎</span> Note</button>
   <button data-new="checklist"><span class="ic" style="background:#12a594">✓</span> Checklist</button>
   <button data-new="task"><span class="ic" style="background:#f5a623">☀</span> Task</button>
+  <button data-new="sheet"><span class="ic" style="background:#0ea5e9">▦</span> Sheet</button>
 </div>
 <button class="fab" id="fab" aria-label="New note">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -409,6 +429,19 @@ const el = (t,c)=>{const e=document.createElement(t); if(c)e.className=c; return
 
 const TAG_COLORS = ['#6d48e5','#e5484d','#f5a623','#12a594','#3b82f6','#ec4899','#8b5cf6','#059669','#f97316','#0ea5e9'];
 const NOTE_COLORS = ['#6d48e5','#12a594','#f5a623','#e5484d','#3b82f6','#ec4899','#64748b','#059669'];
+
+function SHEET_DEFAULT_COLUMNS(){ return [{id:'c_desc',name:'Description',type:'text'},{id:'c_amt',name:'Amount',type:'number'}]; }
+function ensureSheetSchema(n){
+  if(!n || n.type!=='sheet') return;
+  if(!n.columns || !n.columns.length){
+    n.columns = SHEET_DEFAULT_COLUMNS();
+    (n.items||[]).forEach(it=>{
+      if(!it.cells){ it.cells = { c_desc: it.text||'', c_amt: it.amount||'' }; delete it.text; delete it.amount; }
+    });
+  } else {
+    (n.items||[]).forEach(it=>{ if(!it.cells) it.cells={}; });
+  }
+}
 
 /* =========================================================
    Boot
@@ -482,7 +515,7 @@ function matchesFilter(n){
   if(searchQ){
     const q=searchQ.toLowerCase();
     const tagNames=(n.tags||[]).map(id=>{const t=tagById(id);return t?t.name.toLowerCase():''}).join(' ');
-    const itemText=(n.items||[]).map(i=>i.text+' '+(i.qty||'')).join(' ').toLowerCase();
+    const itemText=(n.items||[]).map(i=> i.cells ? Object.values(i.cells).join(' ') : (i.text+' '+(i.qty||'')) ).join(' ').toLowerCase();
     const body=(n.content||'').replace(/<[^>]+>/g,' ').toLowerCase();
     if(!((n.title||'').toLowerCase().includes(q) || body.includes(q) || tagNames.includes(q) || itemText.includes(q))) return false;
   }
@@ -513,6 +546,7 @@ function renderEmpty(e){
 function typeBadge(t){
   if(t==='checklist') return '<span class="typeicon">✓ list</span>';
   if(t==='task') return '<span class="typeicon">☀ task</span>';
+  if(t==='sheet') return '<span class="typeicon">▦ sheet</span>';
   return '<span class="typeicon">✎ note</span>';
 }
 
@@ -534,6 +568,26 @@ function card(n){
   if(n.type==='text'){
     const p=el('div','preview'); p.innerHTML = n.content || '<span style="opacity:.5">Empty note</span>';
     c.appendChild(p);
+  } else if(n.type==='sheet'){
+    ensureSheetSchema(n);
+    const textCol=n.columns.find(cl=>cl.type==='text')||n.columns[0];
+    const numCol=n.columns.find(cl=>cl.type==='number');
+    const ul=el('ul','mini'); const items=(n.items||[]).slice(0,4);
+    if(!items.length){ const li=el('li'); li.innerHTML='<span style="opacity:.5">Empty sheet</span>'; ul.appendChild(li); }
+    items.forEach(it=>{
+      const label=(it.cells&&textCol&&it.cells[textCol.id])||'(no description)';
+      let right='';
+      if(numCol){
+        const amt=parseFloat(it.cells&&it.cells[numCol.id])||0;
+        right='<span style="margin-left:auto;font-weight:700;color:'+(amt<0?'var(--danger)':'var(--accent)')+'">'+(amt<0?'−':'')+'৳ '+formatMoney(Math.abs(amt))+'</span>';
+      }
+      const li=el('li'); li.style.display='flex';
+      li.innerHTML='<span>'+escapeHtml(String(label))+'</span>'+right;
+      ul.appendChild(li);
+    });
+    const more=(n.items||[]).length-4;
+    if(more>0){ const li=el('li'); li.textContent='+'+more+' more rows'; ul.appendChild(li); }
+    c.appendChild(ul);
   } else {
     const ul=el('ul','mini'); const items=(n.items||[]).slice(0,4);
     if(!items.length){ const li=el('li'); li.innerHTML='<span style="opacity:.5">Empty list</span>'; ul.appendChild(li); }
@@ -548,8 +602,9 @@ function card(n){
   }
 
   const meta=el('div','meta');
-  meta.innerHTML = typeBadge(n.type) + (n.type==='task'&&n.taskDate?'<span class="foldertag">'+(n.taskDate==='today'?'Today':'Tomorrow')+'</span>':'');
+  meta.innerHTML = typeBadge(n.type);
   if(n.type==='checklist'){ const tot=(n.items||[]).reduce((s,it)=>s+(parseFloat(it.price)||0),0); if(tot>0){ const s=el('span','foldertag'); s.style.fontWeight='700'; s.style.color='var(--accent)'; s.textContent='৳ '+formatMoney(tot); meta.appendChild(s); } }
+  if(n.type==='sheet'){ const numCol=n.columns&&n.columns.find(cl=>cl.type==='number'); if(numCol){ const tot=(n.items||[]).reduce((s,it)=>s+(parseFloat(it.cells&&it.cells[numCol.id])||0),0); if(tot!==0){ const s=el('span','foldertag'); s.style.fontWeight='700'; s.style.color= tot<0?'var(--danger)':'var(--accent)'; s.textContent=(tot<0?'−':'')+'৳ '+formatMoney(Math.abs(tot)); meta.appendChild(s); } } }
   if(n.folderId){ const f=folderById(n.folderId); if(f){const s=el('span','foldertag');s.textContent='📁 '+f.name;meta.appendChild(s);} }
   (n.tags||[]).forEach(id=>{const t=tagById(id); if(t){const p=el('span','tagpill');p.style.background=t.color;p.textContent=t.name;meta.appendChild(p);}});
   c.appendChild(meta);
@@ -573,9 +628,10 @@ function escapeHtml(s){return (s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&
    New note
 ========================================================= */
 function newNote(type){
-  const n={ id:uid(), type, title:'', content:'', items:[], taskDate:type==='task'?'today':null,
+  const n={ id:uid(), type, title:'', content:'', items:[],
     folderId:filter.folderId||null, tags:filter.tagId?[filter.tagId]:[], color:NOTE_COLORS[0],
     pinned:false, archived:false, deletedAt:null, createdAt:now(), updatedAt:now() };
+  if(type==='sheet') n.columns = SHEET_DEFAULT_COLUMNS();
   notes.push(n); DB.put('notes',n);
   openEditor(n.id);
 }
@@ -616,16 +672,9 @@ function buildEditorBody(){
     rte.innerHTML=n.content||'';
     rte.oninput=()=>{n.content=rte.innerHTML; scheduleSave();};
     body.appendChild(rte);
+  } else if(n.type==='sheet'){
+    body.appendChild(buildSheet());
   } else {
-    if(n.type==='task'){
-      const td=el('div','taskdate');
-      ['today','tomorrow'].forEach(d=>{
-        const b=el('button',n.taskDate===d?'on':''); b.textContent=d==='today'?'Today':'Tomorrow';
-        b.onclick=()=>{n.taskDate=d; scheduleSave(); buildEditorBody();};
-        td.appendChild(b);
-      });
-      body.appendChild(td);
-    }
     body.appendChild(buildItems());
   }
 
@@ -731,6 +780,174 @@ function drawItems(list){
   if(isCheck) refreshTotal(list);
 }
 
+/* =========================================================
+   Sheet — fully custom columns, side-scroll table (Excel style).
+   Number columns: type "-500" to subtract, plain "500" to add.
+   Leftmost handle column (row delete) and the header "+" (add
+   column) stay pinned while the rest of the table scrolls sideways.
+========================================================= */
+function updateSheetTotals(table){
+  const n=editing; if(!n || !n.columns) return;
+  n.columns.forEach(col=>{
+    if(col.type!=='number') return;
+    const cell=table.querySelector('.totalrow[data-col="'+col.id+'"]');
+    if(!cell) return;
+    const tot=(n.items||[]).reduce((s,it)=>s+(parseFloat(it.cells&&it.cells[col.id])||0),0);
+    cell.innerHTML='<b style="color:'+(tot<0?'var(--danger)':'var(--accent)')+'">'+(tot<0?'−':'')+'৳ '+formatMoney(Math.abs(tot))+'</b>';
+  });
+}
+function openColumnSheet(col){
+  const isEdit=!!col;
+  sheet(isEdit?'Edit column':'New column', c=>{
+    const row=el('div','row'); const inp=el('input','field'); inp.placeholder='Column name'; inp.value=isEdit?col.name:''; row.appendChild(inp); c.appendChild(row);
+
+    let chosenType = isEdit ? col.type : 'text';
+    const typeRow=el('div','modetoggle'); typeRow.style.margin='10px 0';
+    [['text','Text'],['number','Number (adds to total)']].forEach(([v,label])=>{
+      const b=el('button', chosenType===v?'on':''); b.textContent=label;
+      b.onclick=()=>{ chosenType=v; typeRow.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); };
+      typeRow.appendChild(b);
+    });
+    c.appendChild(typeRow);
+
+    const save=el('button','primary'); save.textContent=isEdit?'Save column':'Add column';
+    save.onclick=()=>{
+      const name=inp.value.trim(); if(!name) return;
+      editing.columns=editing.columns||[];
+      if(isEdit){ col.name=name; col.type=chosenType; }
+      else { editing.columns.push({id:uid(),name,type:chosenType}); (editing.items||[]).forEach(it=>{it.cells=it.cells||{};}); }
+      scheduleSave(); closeSheet();
+      const table=$('#sheettable'); if(table) drawSheetTable(table);
+    };
+    c.appendChild(save);
+
+    if(isEdit){
+      const del=el('button','danger'); del.style.marginTop='10px'; del.textContent='Delete column';
+      let armed=false, armTimer=null;
+      del.onclick=()=>{
+        if(editing.columns.length<=1){ toast('Keep at least one column'); return; }
+        if(!armed){
+          armed=true; del.textContent='Tap again to confirm delete';
+          armTimer=setTimeout(()=>{ armed=false; del.textContent='Delete column'; }, 3000);
+          return;
+        }
+        clearTimeout(armTimer);
+        editing.columns=editing.columns.filter(x=>x.id!==col.id);
+        (editing.items||[]).forEach(it=>{ if(it.cells) delete it.cells[col.id]; });
+        scheduleSave(); closeSheet();
+        const table=$('#sheettable'); if(table) drawSheetTable(table);
+        toast('Column deleted');
+      };
+      c.appendChild(del);
+    }
+  });
+}
+function drawSheetTable(table){
+  const n=editing; ensureSheetSchema(n);
+  const cols=n.columns;
+  table.innerHTML='';
+  table.style.gridTemplateColumns = '36px ' + cols.map(()=>'minmax(130px,1fr)').join(' ') + ' 44px';
+
+  // header row
+  table.appendChild(el('div','hcell handle'));
+  cols.forEach(col=>{
+    const h=el('div','hcell colhead');
+    const label=el('span'); label.textContent = col.name + (col.type==='number' ? ' Σ' : '');
+    const pencil=el('span','coledit');
+    pencil.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+    h.appendChild(label); h.appendChild(pencil);
+    h.onclick=()=>openColumnSheet(col);
+    table.appendChild(h);
+  });
+  const addColBtn=el('div','hcell addcol');
+  addColBtn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+  addColBtn.onclick=()=>openColumnSheet(null);
+  table.appendChild(addColBtn);
+
+  // data rows
+  (n.items||[]).forEach((it,idx)=>{
+    it.cells=it.cells||{};
+    const handle=el('div','cell handle');
+    const del=el('button','rowdel');
+    del.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+    del.onclick=()=>{ n.items.splice(idx,1); scheduleSave(); drawSheetTable(table); toast('Row deleted'); };
+    handle.appendChild(del);
+    table.appendChild(handle);
+    cols.forEach(col=>{
+      const cellWrap=el('div','cell');
+      const inp=el('input', col.type==='number'?'num':'txt2');
+      inp.value = it.cells[col.id] ?? '';
+      inp.placeholder = col.name;
+      let paintSign=()=>{};
+      if(col.type==='number'){
+        const sign=el('button','signtoggle'); sign.type='button';
+        paintSign=()=>{
+          const neg=String(it.cells[col.id]||'').trim().startsWith('-');
+          sign.textContent = neg?'−':'+';
+          sign.classList.toggle('neg', neg);
+        };
+        sign.onclick=(e)=>{
+          e.preventDefault();
+          let v=String(it.cells[col.id]||'').trim();
+          if(v.startsWith('-')) v=v.slice(1); else if(v) v='-'+v;
+          it.cells[col.id]=v; inp.value=v; paintSign(); scheduleSave(); updateSheetTotals(table);
+        };
+        cellWrap.appendChild(sign);
+        paintSign();
+      }
+      inp.oninput=()=>{ it.cells[col.id]=inp.value; scheduleSave(); updateSheetTotals(table); paintSign(); };
+      inp.onkeydown=e=>{
+        if(e.key==='Enter'){
+          e.preventDefault();
+          const all=[...table.querySelectorAll('.cell input')];
+          const i=all.indexOf(inp);
+          if(all[i+1]) all[i+1].focus();
+        }
+      };
+      cellWrap.appendChild(inp);
+      table.appendChild(cellWrap);
+    });
+    table.appendChild(el('div','cell'));
+  });
+
+  // totals row (one sum per number-type column)
+  if(cols.some(c=>c.type==='number')){
+    const totLabel=el('div','cell totalrow handle'); totLabel.textContent='Total';
+    table.appendChild(totLabel);
+    cols.forEach(col=>{
+      const c=el('div','cell totalrow');
+      if(col.type==='number') c.dataset.col=col.id;
+      table.appendChild(c);
+    });
+    table.appendChild(el('div','cell totalrow'));
+    updateSheetTotals(table);
+  }
+}
+function buildSheet(){
+  ensureSheetSchema(editing);
+  const wrap=el('div');
+  const tableWrap=el('div','sheettable-wrap');
+  const table=el('div','sheettable'); table.id='sheettable';
+  tableWrap.appendChild(table);
+  wrap.appendChild(tableWrap);
+  drawSheetTable(table);
+  const add=el('button','additem');
+  add.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Add row';
+  add.onclick=()=>{
+    editing.items=editing.items||[];
+    const cells={}; editing.columns.forEach(c=>cells[c.id]='');
+    editing.items.push({cells});
+    scheduleSave(); drawSheetTable(table);
+    const inputs=[...table.querySelectorAll('.cell input')]; const nCols=editing.columns.length;
+    if(inputs.length>=nCols) inputs[inputs.length-nCols].focus();
+  };
+  wrap.appendChild(add);
+  const hint=el('div'); hint.style.cssText='font-size:12px;color:var(--ink-soft);margin-top:10px;text-align:center';
+  hint.textContent='Number column e "-" diye subtract hoy. Header e ট্যাপ করে rename/delete column, + diye notun column, 🗑 diye row delete.';
+  wrap.appendChild(hint);
+  return wrap;
+}
+
 function buildMetaEditor(){
   const m=el('div','metaed'); const n=editing;
 
@@ -793,7 +1010,7 @@ function openNoteMenu(){
     const list=el('div','menu-list');
     const mk=(label,icon,fn,danger)=>{const b=el('button',danger?'danger':'');b.innerHTML='<span>'+icon+'</span> '+label;b.onclick=fn;return b;};
     list.appendChild(mk(n.archived?'Unarchive':'Archive','🗂️',()=>{n.archived=!n.archived;n.updatedAt=now();DB.put('notes',n);closeSheet();toast(n.archived?'Archived':'Unarchived');}));
-    list.appendChild(mk('Duplicate','⧉',()=>{const copy={...n,id:uid(),title:(n.title||'Untitled')+' copy',items:(n.items||[]).map(i=>({...i})),createdAt:now(),updatedAt:now(),pinned:false};notes.push(copy);DB.put('notes',copy);closeSheet();toast('Duplicated');}));
+    list.appendChild(mk('Duplicate','⧉',()=>{const copy={...n,id:uid(),title:(n.title||'Untitled')+' copy',items:(n.items||[]).map(i=>({...i, cells: i.cells?{...i.cells}:undefined})),columns:n.columns?n.columns.map(cl=>({...cl})):undefined,createdAt:now(),updatedAt:now(),pinned:false};notes.push(copy);DB.put('notes',copy);closeSheet();toast('Duplicated');}));
     list.appendChild(mk('Move to Trash','🗑️',()=>{n.deletedAt=now();n.pinned=false;DB.put('notes',n);closeSheet();closeEditor();toast('Moved to Trash');},true));
     c.appendChild(list);
   });
@@ -1053,7 +1270,7 @@ function driveRestore(){
 function openThemeSheet(){
   sheet('Settings', c=>{
     const l1=el('span','lab'); l1.style.cssText='font-size:12.5px;font-weight:700;color:var(--ink-soft)'; l1.textContent='Mode'; c.appendChild(l1);
-    const modeRow=el('div','taskdate'); modeRow.style.margin='8px 0 16px';
+    const modeRow=el('div','modetoggle'); modeRow.style.margin='8px 0 16px';
     [['light','Light'],['dark','Dark']].forEach(([m,label])=>{ const b=el('button',settings.mode===m?'on':''); b.textContent=label; b.onclick=()=>{ settings.mode=m; applyTheme(); saveSettings(); modeRow.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }; modeRow.appendChild(b); });
     c.appendChild(modeRow);
 

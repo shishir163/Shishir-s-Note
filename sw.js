@@ -1,5 +1,5 @@
 /* Notes app service worker — offline app shell */
-const CACHE = 'notes-v1';
+const CACHE = 'notes-v5';
 const ASSETS = [
   './',
   './index.html',
