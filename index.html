@@ -284,8 +284,18 @@
   .bar .fill{width:100%;max-width:24px;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,var(--accent),var(--accent-2))}
   .bar .n{font-size:11px;font-weight:700;color:var(--ink-soft);min-height:13px}
   .bar .d{font-size:10.5px;color:var(--ink-soft)}
-  .cloud{display:flex;flex-wrap:wrap;gap:9px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
-  .cloud button{font-weight:700;color:#fff;padding:5px 13px;border-radius:999px;line-height:1.25}
+  .banner{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;margin:0 0 10px;color:#fff;background:linear-gradient(135deg,#f97316,#ec4899);box-shadow:var(--shadow);cursor:pointer}
+  .banner .bt{flex:1;min-width:0}.banner b{display:block;font-size:14.5px}.banner span.s{display:block;font-size:12.5px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .banner.bk{background:linear-gradient(135deg,#0ea5e9,#6366f1);cursor:default}
+  .banner button{background:rgba(255,255,255,.22);color:#fff;font-weight:700;padding:7px 11px;border-radius:10px;font-size:12.5px}
+  .todaybox{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:0 0 12px;box-shadow:var(--shadow)}
+  .todaybox h4{margin:0 0 6px;font-size:13px;color:var(--ink-soft)}
+  .todaybox .tr{display:flex;gap:8px;padding:7px 0;border-top:1px solid var(--line);cursor:pointer;font-size:14px}.todaybox .tr:first-of-type{border-top:none}
+  .todaybox .tr em{margin-left:auto;font-style:normal;font-size:12px;font-weight:700;color:var(--accent)}.todaybox .tr em.od{color:var(--danger)}
+  .duechip{font-weight:700;font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}.duechip.od{background:var(--danger-soft);color:var(--danger)}
+  mark{background:#fde047;color:#1a1a1a;border-radius:3px;padding:0 2px}
+  .cloud{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;box-shadow:var(--shadow)}
+  .cloud button{font-weight:600;color:#fff;padding:3px 9px;border-radius:999px;line-height:1.25}
   .recent{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
   .recent::-webkit-scrollbar{display:none}
   .rcard{flex:0 0 158px;text-align:left;background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
@@ -336,7 +346,8 @@
   <div class="searchrow" id="searchrow">
     <div class="search">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
-      <input id="search" placeholder="Search title, content, tags" autocomplete="off"/>
+      <input id="search" placeholder="Search notes, tags, items…" autocomplete="off" enterkeyhint="search"/>
+      <button id="searchclear" class="hidden" title="Clear" style="width:26px;height:26px;border-radius:50%;color:var(--ink-soft);font-size:18px;line-height:1">×</button>
     </div>
     <button class="iconbtn" id="viewtoggle" title="View">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
@@ -347,6 +358,7 @@
 <div class="chips" id="chips"></div>
 
 <main>
+  <div id="topbox"></div>
   <div id="notes" class="grid"></div>
   <div id="empty" class="empty hidden"></div>
   <div id="dash" class="hidden"></div>
@@ -358,6 +370,7 @@
   <button data-new="checklist"><span class="ic" style="background:#12a594">✓</span> Checklist</button>
   <button data-new="task"><span class="ic" style="background:#f5a623">☀</span> Task</button>
   <button data-new="sheet"><span class="ic" style="background:#0ea5e9">▦</span> Sheet</button>
+  <button data-new="template"><span class="ic" style="background:#ec4899">★</span> Template</button>
 </div>
 <button class="fab" id="fab" aria-label="New note">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -450,11 +463,13 @@ async function boot(){
   await DB.open();
   [notes,folders,tags] = await Promise.all([DB.all('notes'),DB.all('folders'),DB.all('tags')]);
   const s=(await DB.all('settings'))[0];
-  if(s){ settings.theme=s.theme||'violet'; settings.mode=s.mode||'light'; view=s.view||'grid'; settings.driveClientId=s.driveClientId||''; }
+  if(s){ settings.theme=s.theme||'violet'; settings.mode=s.mode||'light'; view=s.view||'grid'; settings.night=s.night||'midnight'; settings.pinHash=s.pinHash||''; settings.lastBackup=s.lastBackup||0; settings.lastPopup=s.lastPopup||''; settings.backupSnooze=s.backupSnooze||''; }
   applyTheme();
   $('#viewtoggle').classList.toggle('active',view==='list');
   await purgeOldTrash();
+  if(!settings.lastBackup){ settings.lastBackup=now(); saveSettings(); }
   render();
+  showDailyPopup();
   if(DB.isMem()) toast('Preview mode — data saves for real on your site');
 }
 
@@ -504,21 +519,100 @@ function renderChips(){
   });
 }
 
+
+/* ---------- Powerful search ---------- */
+const _norm=t=>String(t==null?'':t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const _words=t=>_norm(t).match(/[\p{L}\p{N}\p{M}]+/gu)||[];
+const _strip=h=>String(h||'').replace(/<br\s*\/?>|<\/(p|div|li|h\d)>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+function _lev(a,b,max){
+  if(Math.abs(a.length-b.length)>max) return max+1;
+  let prev=[],cur=[]; for(let j=0;j<=b.length;j++) prev[j]=j;
+  for(let i=1;i<=a.length;i++){ cur=[i]; let mn=i;
+    for(let j=1;j<=b.length;j++){ cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1)); if(cur[j]<mn) mn=cur[j]; }
+    if(mn>max) return max+1; prev=cur; }
+  return prev[b.length];
+}
+/* how well does query word w match the field text (normalized)? 0 = no match */
+function _wordHit(w,fieldNorm,fieldWords){
+  if(fieldNorm.includes(w)) return fieldWords.includes(w)?1:0.85;      // whole word or substring
+  if(w.length<3) return 0;
+  const max=w.length>=8?2:1;
+  for(const fw of fieldWords){
+    if(fw.length>=w.length && fw.startsWith(w.slice(0,Math.max(3,w.length-1))) && _lev(w,fw.slice(0,w.length),max)<=max) return 0.6;
+    if(_lev(w,fw,max)<=max) return 0.5;
+  }
+  return 0;
+}
+function parseQuery(q){
+  const out={terms:[],phrases:[],neg:[],tag:[],folder:[],type:[],is:[]};
+  const re=/(-?)(?:(tag|folder|type|is):)?(?:"([^"]+)"|(\S+))/gi; let m;
+  while((m=re.exec(q))){
+    const neg=!!m[1], key=m[2]&&m[2].toLowerCase(), val=_norm(m[3]!=null?m[3]:m[4]).replace(/^#/,'');
+    if(!val) continue;
+    if(key){ out[key].push(val); continue; }
+    if(neg){ out.neg.push(val); continue; }
+    if(m[3]!=null) out.phrases.push(val); else _words(val).forEach(w=>out.terms.push(w));
+  }
+  return out;
+}
+let _pq=null,_pqSrc='';
+function searchFields(n){
+  const tagNames=(n.tags||[]).map(id=>{const t=tagById(id);return t?t.name:''}).filter(Boolean);
+  const f=n.folderId&&folderById(n.folderId); 
+  let cols=''; if(n.type==='sheet'&&n.columns) cols=n.columns.map(c=>c.name||c.label||'').join(' ');
+  const items=(n.items||[]).map(i=> i.cells ? Object.values(i.cells).join(' ') : ((i.text||'')+' '+(i.qty||'')+' '+(i.price||'')+' '+(i.note||'')) ).join(' \n ');
+  return {title:_norm(n.title),tags:_norm(tagNames.join(' ')),folder:_norm(f?f.name:''),items:n.locked?'':_norm(items+' '+cols),body:n.locked?'':_norm(_strip(n.content)),type:_norm(n.type)};
+}
+function searchScore(n){
+  if(_pqSrc!==searchQ){ _pq=parseQuery(searchQ); _pqSrc=searchQ; }
+  const q=_pq, F=searchFields(n);
+  for(const v of q.type) if(!F.type.includes(v) && !(v==='list'&&F.type==='checklist') && !(v==='note'&&F.type==='text')) return 0;
+  for(const v of q.tag) if(!(F.tags.includes(v))) return 0;
+  for(const v of q.folder) if(!F.folder.includes(v)) return 0;
+  for(const v of q.is){ if(v==='pinned'&&!n.pinned) return 0; if(v==='archived'&&!n.archived) return 0; if(v==='done'&&!(n.items||[]).length) return 0; }
+  const all=F.title+' '+F.tags+' '+F.folder+' '+F.items+' '+F.body;
+  for(const v of q.neg) if(all.includes(v)) return 0;
+  let score=1;
+  for(const p of q.phrases){ if(!all.includes(p)) return 0; score+=(F.title.includes(p)?30:F.items.includes(p)||F.tags.includes(p)?20:10); }
+  const W={title:10,tags:8,folder:5,items:4,body:3};
+  const fw={}; for(const k in W) fw[k]=_words(F[k]);
+  for(const w of q.terms){
+    let best=0;
+    for(const k in W){ const h=_wordHit(w,F[k],fw[k]); if(h*W[k]>best) best=h*W[k]; }
+    if(!best) return 0;                      // every word must match somewhere (AND)
+    score+=best;
+  }
+  if(q.terms.length>1 && F.title.includes(q.terms.join(' '))) score+=8;
+  if(n.pinned) score+=0.5;
+  return score;
+}
+function hl(text){            // escape + highlight matching words
+  let h=escapeHtml(text);
+  if(!searchQ||!_pq) return h;
+  const ws=[..._pq.terms,..._pq.phrases].filter(w=>w.length>0);
+  ws.forEach(w=>{ try{ const rx=new RegExp('('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'); h=h.replace(rx,'<mark>$1</mark>'); }catch(e){} });
+  return h;
+}
+function snippet(n){          // text around first match
+  const plain=_strip(n.content).replace(/\s+/g,' ').trim();
+  if(!plain) return '';
+  const ws=[..._pq.terms,..._pq.phrases]; const low=plain.toLowerCase();
+  let at=-1; for(const w of ws){ const i=low.indexOf(w); if(i>=0&&(at<0||i<at)) at=i; }
+  if(at<0) return null;
+  const st=Math.max(0,at-40), en=Math.min(plain.length,at+120);
+  return (st>0?'…':'')+plain.slice(st,en)+(en<plain.length?'…':'');
+}
+function matchesQ(txt){ if(!searchQ||!_pq) return false; const t=_norm(txt); return _pq.terms.some(w=>t.includes(w))||_pq.phrases.some(p=>t.includes(p)); }
+
 function matchesFilter(n){
   if(filter.kind==='trash') return !!n.deletedAt;
   if(n.deletedAt) return false;
   if(filter.kind==='archived' && !n.archived) return false;
-  if(filter.kind!=='archived' && n.archived) return false;
+  if(filter.kind!=='archived' && n.archived && !(searchQ && filter.kind==='active')) return false;
   if(filter.kind==='pinned' && !n.pinned) return false;
   if(filter.folderId && n.folderId!==filter.folderId) return false;
   if(filter.tagId && !(n.tags||[]).includes(filter.tagId)) return false;
-  if(searchQ){
-    const q=searchQ.toLowerCase();
-    const tagNames=(n.tags||[]).map(id=>{const t=tagById(id);return t?t.name.toLowerCase():''}).join(' ');
-    const itemText=(n.items||[]).map(i=> i.cells ? Object.values(i.cells).join(' ') : (i.text+' '+(i.qty||'')) ).join(' ').toLowerCase();
-    const body=(n.content||'').replace(/<[^>]+>/g,' ').toLowerCase();
-    if(!((n.title||'').toLowerCase().includes(q) || body.includes(q) || tagNames.includes(q) || itemText.includes(q))) return false;
-  }
+  if(searchQ){ const sc=searchScore(n); n._sc=sc; if(sc<=0) return false; }
   return true;
 }
 
@@ -526,7 +620,11 @@ function renderNotes(){
   const box=$('#notes'), empty=$('#empty');
   box.className = view==='grid'?'grid':'list';
   let list = notes.filter(matchesFilter);
-  list.sort((a,b)=> (b.pinned?1:0)-(a.pinned?1:0) || (b.updatedAt||0)-(a.updatedAt||0));
+  if(searchQ) list.sort((a,b)=> (b._sc||0)-(a._sc||0) || (b.updatedAt||0)-(a.updatedAt||0));
+  else list.sort((a,b)=> (b.pinned?1:0)-(a.pinned?1:0) || (b.updatedAt||0)-(a.updatedAt||0));
+  renderTop();
+  const oldCnt=document.getElementById('rescount'); if(oldCnt) oldCnt.remove();
+  if(searchQ && list.length){ const rc=el('div'); rc.id='rescount'; rc.style.cssText='font-size:12.5px;color:var(--ink-soft);margin:2px 4px 8px'; rc.textContent=list.length+' result'+(list.length>1?'s':'')+' · best match first'; box.parentNode.insertBefore(rc,box); }
   box.innerHTML='';
   if(!list.length){ box.classList.add('hidden'); empty.classList.remove('hidden'); renderEmpty(empty); return; }
   box.classList.remove('hidden'); empty.classList.add('hidden');
@@ -535,7 +633,7 @@ function renderNotes(){
 
 function renderEmpty(e){
   let big='📝', msg='<b>No notes yet</b>', sub='Tap + to add your first one.';
-  if(searchQ){ big='🔍'; msg='<b>Nothing found</b>'; sub='Try another word.'; }
+  if(searchQ){ big='🔍'; msg='<b>Nothing found</b>'; sub='Try other words, fewer words, or a different spelling.<br><span style="font-size:12px">Tips: tag:name · folder:name · type:sheet · is:pinned · -exclude · "exact phrase"</span>'; }
   else if(filter.kind==='pinned'){ big='📌'; msg='<b>No pinned notes</b>'; sub='Pin a note to keep it on top.'; }
   else if(filter.kind==='archived'){ big='🗂️'; msg='<b>Archive is empty</b>'; sub='Archived notes rest here, out of the way.'; }
   else if(filter.kind==='trash'){ big='🗑️'; msg='<b>Trash is empty</b>'; sub='Deleted notes stay 30 days, then clear.'; }
@@ -550,12 +648,18 @@ function typeBadge(t){
   return '<span class="typeicon">✎ note</span>';
 }
 
+function _topRows(n,txt){
+  const all=n.items||[];
+  if(!searchQ) return all.slice(0,4);
+  const m=all.filter(it=>matchesQ(txt(it))), r=all.filter(it=>!matchesQ(txt(it)));
+  return m.concat(r).slice(0,4);
+}
 function card(n){
   const c=el('div','card'+(n.pinned?' pinnedcard':''));
   c.style.borderLeftColor = n.color||'var(--accent)';
 
   const top=el('div','top');
-  const h=el('h3'); h.textContent=n.title||'Untitled';
+  const h=el('h3'); if(searchQ) h.innerHTML=hl(n.title||'Untitled'); else h.textContent=n.title||'Untitled';
   top.appendChild(h);
   if(!n.deletedAt){
     const pin=el('button','pinbtn'+(n.pinned?' on':''));
@@ -565,14 +669,17 @@ function card(n){
   }
   c.appendChild(top);
 
-  if(n.type==='text'){
-    const p=el('div','preview'); p.innerHTML = n.content || '<span style="opacity:.5">Empty note</span>';
+  if(n.locked){ const lk=el('div','preview'); lk.innerHTML='<span style="opacity:.7">🔒 Locked note — tap and enter PIN</span>'; c.appendChild(lk); }
+  else if(n.type==='text'){
+    const p=el('div','preview');
+    const sn=searchQ?snippet(n):null;
+    if(sn) p.innerHTML=hl(sn); else p.innerHTML = n.content || '<span style="opacity:.5">Empty note</span>';
     c.appendChild(p);
   } else if(n.type==='sheet'){
     ensureSheetSchema(n);
     const textCol=n.columns.find(cl=>cl.type==='text')||n.columns[0];
     const numCol=n.columns.find(cl=>cl.type==='number');
-    const ul=el('ul','mini'); const items=(n.items||[]).slice(0,4);
+    const ul=el('ul','mini'); const items=_topRows(n,(it)=>Object.values(it.cells||{}).join(' '));
     if(!items.length){ const li=el('li'); li.innerHTML='<span style="opacity:.5">Empty sheet</span>'; ul.appendChild(li); }
     items.forEach(it=>{
       const label=(it.cells&&textCol&&it.cells[textCol.id])||'(no description)';
@@ -582,18 +689,18 @@ function card(n){
         right='<span style="margin-left:auto;font-weight:700;color:'+(amt<0?'var(--danger)':'var(--accent)')+'">'+(amt<0?'−':'')+'৳ '+formatMoney(Math.abs(amt))+'</span>';
       }
       const li=el('li'); li.style.display='flex';
-      li.innerHTML='<span>'+escapeHtml(String(label))+'</span>'+right;
+      li.innerHTML='<span>'+(searchQ?hl(String(label)):escapeHtml(String(label)))+'</span>'+right;
       ul.appendChild(li);
     });
     const more=(n.items||[]).length-4;
     if(more>0){ const li=el('li'); li.textContent='+'+more+' more rows'; ul.appendChild(li); }
     c.appendChild(ul);
   } else {
-    const ul=el('ul','mini'); const items=(n.items||[]).slice(0,4);
+    const ul=el('ul','mini'); const items=_topRows(n,(it)=>(it.text||'')+' '+(it.qty||''));
     if(!items.length){ const li=el('li'); li.innerHTML='<span style="opacity:.5">Empty list</span>'; ul.appendChild(li); }
     items.forEach(it=>{
       const li=el('li',it.done?'done':'');
-      li.innerHTML='<span class="box'+(it.done?' done':'')+'"></span><span>'+escapeHtml(it.text||'')+(it.qty?' · '+escapeHtml(it.qty):'')+'</span>';
+      li.innerHTML='<span class="box'+(it.done?' done':'')+'"></span><span>'+(searchQ?hl(it.text||''):escapeHtml(it.text||''))+(it.qty?' · '+escapeHtml(it.qty):'')+'</span>';
       ul.appendChild(li);
     });
     const more=(n.items||[]).length-4;
@@ -603,10 +710,13 @@ function card(n){
 
   const meta=el('div','meta');
   meta.innerHTML = typeBadge(n.type);
-  if(n.type==='checklist'){ const tot=(n.items||[]).reduce((s,it)=>s+(parseFloat(it.price)||0),0); if(tot>0){ const s=el('span','foldertag'); s.style.fontWeight='700'; s.style.color='var(--accent)'; s.textContent='৳ '+formatMoney(tot); meta.appendChild(s); } }
-  if(n.type==='sheet'){ const numCol=n.columns&&n.columns.find(cl=>cl.type==='number'); if(numCol){ const tot=(n.items||[]).reduce((s,it)=>s+(parseFloat(it.cells&&it.cells[numCol.id])||0),0); if(tot!==0){ const s=el('span','foldertag'); s.style.fontWeight='700'; s.style.color= tot<0?'var(--danger)':'var(--accent)'; s.textContent=(tot<0?'−':'')+'৳ '+formatMoney(Math.abs(tot)); meta.appendChild(s); } } }
+  if(n.type==='checklist'&&!n.locked){ const tot=(n.items||[]).reduce((s,it)=>s+(parseFloat(it.price)||0),0); if(tot>0){ const s=el('span','foldertag'); s.style.fontWeight='700'; s.style.color='var(--accent)'; s.textContent='৳ '+formatMoney(tot); meta.appendChild(s); } }
+  if(n.type==='sheet'&&!n.locked){ const numCol=n.columns&&n.columns.find(cl=>cl.type==='number'); if(numCol){ const tot=(n.items||[]).reduce((s,it)=>s+(parseFloat(it.cells&&it.cells[numCol.id])||0),0); if(tot!==0){ const s=el('span','foldertag'); s.style.fontWeight='700'; s.style.color= tot<0?'var(--danger)':'var(--accent)'; s.textContent=(tot<0?'−':'')+'৳ '+formatMoney(Math.abs(tot)); meta.appendChild(s); } } }
   if(n.folderId){ const f=folderById(n.folderId); if(f){const s=el('span','foldertag');s.textContent='📁 '+f.name;meta.appendChild(s);} }
   (n.tags||[]).forEach(id=>{const t=tagById(id); if(t){const p=el('span','tagpill');p.style.background=t.color;p.textContent=t.name;meta.appendChild(p);}});
+  if(n.important){ const s=el('span','foldertag'); s.textContent='⭐ Important'; meta.appendChild(s); }
+  if(n.locked){ const s=el('span','foldertag'); s.textContent='🔒'; meta.appendChild(s); }
+  if(n.due){ const od=n.due<todayStr(); const s=el('span','duechip'+(od?' od':'')); s.textContent='📅 '+dueLabel(n.due); meta.appendChild(s); }
   c.appendChild(meta);
 
   if(n.deletedAt){
@@ -627,11 +737,12 @@ function escapeHtml(s){return (s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&
 /* =========================================================
    New note
 ========================================================= */
-function newNote(type){
+function newNote(type,init){
   const n={ id:uid(), type, title:'', content:'', items:[],
     folderId:filter.folderId||null, tags:filter.tagId?[filter.tagId]:[], color:NOTE_COLORS[0],
     pinned:false, archived:false, deletedAt:null, createdAt:now(), updatedAt:now() };
   if(type==='sheet') n.columns = SHEET_DEFAULT_COLUMNS();
+  if(init) init(n);
   notes.push(n); DB.put('notes',n);
   openEditor(n.id);
 }
@@ -641,7 +752,13 @@ function newNote(type){
 ========================================================= */
 let editing=null, saveTimer=null;
 
+const unlockedIds=new Set();
 function openEditor(id){
+  const n=notes.find(x=>x.id===id); if(!n) return;
+  if(n.locked && settings.pinHash && !unlockedIds.has(id)){ askPin('Enter PIN to open',()=>{ unlockedIds.add(id); _openEditor(id); }); return; }
+  _openEditor(id);
+}
+function _openEditor(id){
   editing = notes.find(n=>n.id===id); if(!editing) return;
   const ov=el('div','overlay'); ov.id='editor';
   ov.innerHTML = `
@@ -1011,6 +1128,9 @@ function openNoteMenu(){
     const mk=(label,icon,fn,danger)=>{const b=el('button',danger?'danger':'');b.innerHTML='<span>'+icon+'</span> '+label;b.onclick=fn;return b;};
     list.appendChild(mk(n.archived?'Unarchive':'Archive','🗂️',()=>{n.archived=!n.archived;n.updatedAt=now();DB.put('notes',n);closeSheet();toast(n.archived?'Archived':'Unarchived');}));
     list.appendChild(mk('Duplicate','⧉',()=>{const copy={...n,id:uid(),title:(n.title||'Untitled')+' copy',items:(n.items||[]).map(i=>({...i, cells: i.cells?{...i.cells}:undefined})),columns:n.columns?n.columns.map(cl=>({...cl})):undefined,createdAt:now(),updatedAt:now(),pinned:false};notes.push(copy);DB.put('notes',copy);closeSheet();toast('Duplicated');}));
+    list.appendChild(mk(n.important?'Remove from Important':'Mark as Important','⭐',()=>{n.important=!n.important;n.updatedAt=now();DB.put('notes',n);closeSheet();toast(n.important?'Marked important':'Removed');}));
+    list.appendChild(mk(n.due?'Due: '+dueLabel(n.due)+' (change)':'Set due date','📅',()=>openDueSheet(n)));
+    list.appendChild(mk(n.locked?'Remove lock':'Lock with PIN','🔒',()=>toggleLock(n)));
     list.appendChild(mk('Move to Trash','🗑️',()=>{n.deletedAt=now();n.pinned=false;DB.put('notes',n);closeSheet();closeEditor();toast('Moved to Trash');},true));
     c.appendChild(list);
   });
@@ -1089,12 +1209,15 @@ function toast(msg){const t=$('#toast'); t.textContent=msg; t.classList.add('sho
 /* =========================================================
    Header / FAB wiring
 ========================================================= */
-$('#search').oninput=e=>{searchQ=e.target.value.trim(); renderNotes();};
+let searchTimer=null;
+function setSearch(v){ searchQ=v.trim(); $('#searchclear').classList.toggle('hidden',!v); renderNotes(); }
+$('#search').oninput=e=>{ const v=e.target.value; $('#searchclear').classList.toggle('hidden',!v); clearTimeout(searchTimer); searchTimer=setTimeout(()=>setSearch(v),120); };
+$('#searchclear').onclick=()=>{ $('#search').value=''; setSearch(''); $('#search').focus(); };
 $('#viewtoggle').onclick=()=>{view=view==='grid'?'list':'grid'; $('#viewtoggle').classList.toggle('active',view==='list'); saveSettings(); renderNotes();};
 
 let fabOpen=false;
 $('#fab').onclick=()=>{fabOpen=!fabOpen; $('#fabmenu').classList.toggle('hidden',!fabOpen); $('#fab').style.transform=fabOpen?'rotate(45deg)':'none'; $('#fab').style.transition='transform .2s';};
-document.querySelectorAll('#fabmenu button').forEach(b=>b.onclick=()=>{fabOpen=false;$('#fabmenu').classList.add('hidden');$('#fab').style.transform='none';newNote(b.dataset.new);});
+document.querySelectorAll('#fabmenu button').forEach(b=>b.onclick=()=>{fabOpen=false;$('#fabmenu').classList.add('hidden');$('#fab').style.transform='none';if(b.dataset.new==='template') openTemplates(); else newNote(b.dataset.new);});
 document.addEventListener('click',e=>{ if(fabOpen && !e.target.closest('#fab') && !e.target.closest('#fabmenu')){fabOpen=false;$('#fabmenu').classList.add('hidden');$('#fab').style.transform='none';} });
 
 /* =========================================================
@@ -1107,7 +1230,18 @@ const PALETTES={
   forest:{name:'Forest',a:'#059669',b:'#10b981',s:'#d1fae5'},
   lavender:{name:'Lavender',a:'#8b5cf6',b:'#c4b5fd',s:'#f3e8ff'}
 };
-let settings={theme:'violet',mode:'light',view:'grid',driveClientId:''};
+const NIGHTS={
+  midnight:{name:'Midnight',canvas:'#13141b',surface:'#1e2029',surface2:'#262935',ink:'#e9eaf2',soft:'#9aa0b4',line:'#2f3242'},
+  amoled:{name:'AMOLED',canvas:'#000000',surface:'#0d0d10',surface2:'#17171c',ink:'#e8e8ee',soft:'#8d90a0',line:'#23242c'},
+  navy:{name:'Navy',canvas:'#0b1220',surface:'#131c2e',surface2:'#1b2740',ink:'#e2e8f5',soft:'#8fa0bf',line:'#24324d'},
+  coffee:{name:'Coffee',canvas:'#17120e',surface:'#211a14',surface2:'#2b221a',ink:'#efe6dc',soft:'#a89a8a',line:'#3a2e24'},
+  forest:{name:'Forest',canvas:'#0a1411',surface:'#111e19',surface2:'#182a23',ink:'#e0efe8',soft:'#8aa89b',line:'#1f3329'},
+  plum:{name:'Plum',canvas:'#15101c',surface:'#1e1729',surface2:'#281f37',ink:'#ece6f5',soft:'#a094b8',line:'#34294a'},
+  slate:{name:'Slate',canvas:'#1a1d21',surface:'#23272c',surface2:'#2d3238',ink:'#e6e8eb',soft:'#9aa1aa',line:'#363c43'},
+  rose:{name:'Rose',canvas:'#1a1013',surface:'#25171b',surface2:'#301e23',ink:'#f3e6e9',soft:'#b49aa1',line:'#41272e'},
+  ember:{name:'Ember',canvas:'#140e0a',surface:'#1f1510',surface2:'#2a1d16',ink:'#f2e7df',soft:'#b09a88',line:'#3c2a1f'}
+};
+let settings={theme:'violet',mode:'light',night:'midnight',view:'grid',pinHash:'',lastBackup:0,lastPopup:'',backupSnooze:''};
 let currentTab='notes';
 
 function applyTheme(){
@@ -1115,9 +1249,12 @@ function applyTheme(){
   const r=document.documentElement.style;
   r.setProperty('--accent',p.a); r.setProperty('--accent-2',p.b); r.setProperty('--accent-soft',p.s);
   document.documentElement.setAttribute('data-mode',settings.mode);
-  const meta=document.querySelector('meta[name=theme-color]'); if(meta) meta.setAttribute('content', settings.mode==='dark'?'#13141b':p.a);
+  const meta=document.querySelector('meta[name=theme-color]'); if(meta) meta.setAttribute('content', settings.mode==='dark'?(NIGHTS[settings.night]||NIGHTS.midnight).canvas:p.a);
+  const vars={'--canvas':'canvas','--surface':'surface','--surface-2':'surface2','--ink':'ink','--ink-soft':'soft','--line':'line'};
+  if(settings.mode==='dark'){ const nt=NIGHTS[settings.night]||NIGHTS.midnight; for(const k in vars) r.setProperty(k,nt[vars[k]]); }
+  else for(const k in vars) r.removeProperty(k);
 }
-function saveSettings(){ DB.put('settings',{id:'app',theme:settings.theme,mode:settings.mode,view:view,driveClientId:settings.driveClientId||''}); }
+function saveSettings(){ DB.put('settings',{id:'app',theme:settings.theme,mode:settings.mode,view:view,night:settings.night,pinHash:settings.pinHash||'',lastBackup:settings.lastBackup||0,lastPopup:settings.lastPopup||'',backupSnooze:settings.backupSnooze||''}); }
 
 function switchTab(t){
   currentTab=t;
@@ -1165,7 +1302,7 @@ function renderDashboard(){
   html+='</div></div>';
 
   html+='<div class="dash-sect"><h2>Tags</h2>';
-  if(freq.length){ html+='<div class="cloud">'; freq.forEach(x=>{ const sz=13+Math.round((x.c/maxf)*13); html+='<button data-tag="'+x.t.id+'" style="background:'+x.t.color+';font-size:'+sz+'px">'+escapeHtml(x.t.name)+' <span style="opacity:.85">'+x.c+'</span></button>'; }); html+='</div>'; }
+  if(freq.length){ html+='<div class="cloud">'; freq.forEach(x=>{ const sz=11+Math.round((x.c/maxf)*3); html+='<button data-tag="'+x.t.id+'" style="background:'+x.t.color+';font-size:'+sz+'px">'+escapeHtml(x.t.name)+' <span style="opacity:.85">'+x.c+'</span></button>'; }); html+='</div>'; }
   else html+='<div class="dash-empty">No tagged notes yet.</div>';
   html+='</div>';
 
@@ -1186,6 +1323,7 @@ function exportData(){
   const a=document.createElement('a'); a.href=url; a.download='notes-backup-'+new Date().toISOString().slice(0,10)+'.json';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1500);
+  settings.lastBackup=now(); saveSettings(); render();
   toast('Backup downloaded');
 }
 async function importData(file){
@@ -1212,58 +1350,151 @@ function pickImportFile(){
   inp.click();
 }
 
-/* ---------- Google Drive backup (online only; needs the user's OAuth Client ID) ---------- */
-let driveToken=null, driveTokenClient=null;
-function loadGIS(){
-  return new Promise((res,rej)=>{
-    if(window.google && google.accounts && google.accounts.oauth2) return res();
-    const s=document.createElement('script'); s.src='https://accounts.google.com/gsi/client'; s.async=true; s.defer=true;
-    s.onload=()=>res(); s.onerror=()=>rej(new Error('gis')); document.head.appendChild(s);
+/* ---------- Share backup (WhatsApp / Messenger / Mail via the phone's share sheet) ---------- */
+async function shareBackup(){
+  const data={app:'notes',version:2,exportedAt:new Date().toISOString(),notes,folders,tags};
+  const name='notes-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  let file;
+  try{ file=new File([JSON.stringify(data,null,2)],name,{type:'application/json'}); }catch(e){ return exportData(); }
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:'Notes backup',text:'Shishir\'s Note backup'}); settings.lastBackup=now(); saveSettings(); render(); toast('Backup shared'); }
+    catch(e){ if(e && e.name!=='AbortError'){ exportData(); } }
+  } else { exportData(); toast('Sharing not supported here — file downloaded'); }
+}
+
+
+/* =========================================================
+   v7 — Important banner, Today, daily popup, backup reminder,
+   PIN lock, templates
+========================================================= */
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function dueLabel(ds){
+  const t=todayStr(); if(ds===t) return 'Today';
+  const a=new Date(ds+'T00:00:00'), b=new Date(t+'T00:00:00'); const d=Math.round((a-b)/86400000);
+  if(d===1) return 'Tomorrow'; if(d===-1) return 'Yesterday';
+  if(d<0) return Math.abs(d)+' days overdue';
+  return a.toLocaleDateString(undefined,{day:'numeric',month:'short'});
+}
+const liveNotes=()=>notes.filter(n=>!n.deletedAt&&!n.archived);
+const importantNotes=()=>liveNotes().filter(n=>n.important);
+const dueNotes=()=>liveNotes().filter(n=>n.due&&n.due<=todayStr()).sort((a,b)=>a.due<b.due?-1:1);
+function noteLine(n){
+  if(n.locked) return '🔒 Locked';
+  if(n.type==='text') return _strip(n.content).replace(/\s+/g,' ').trim().slice(0,90);
+  const arr=(n.items||[]); return arr.slice(0,3).map(i=> i.cells?Object.values(i.cells)[0]:i.text).filter(Boolean).join(' · ');
+}
+function renderTop(){
+  const box=document.getElementById('topbox'); if(!box) return; box.innerHTML='';
+  if(filter.kind!=='active'||searchQ||filter.folderId||filter.tagId) return;
+  // backup reminder
+  const days=Math.floor((now()-(settings.lastBackup||now()))/86400000);
+  if(notes.some(n=>!n.deletedAt) && days>=7 && settings.backupSnooze!==todayStr()){
+    const b=el('div','banner bk');
+    b.innerHTML='<div class="bt"><b>💾 Backup nin</b><span class="s">Last backup '+days+' days ago — notes only live on this phone.</span></div>';
+    const b1=el('button'); b1.textContent='Backup'; b1.onclick=e=>{e.stopPropagation(); shareBackup();};
+    const b2=el('button'); b2.textContent='Later'; b2.onclick=e=>{e.stopPropagation(); settings.backupSnooze=todayStr(); saveSettings(); renderTop();};
+    b.appendChild(b1); b.appendChild(b2); box.appendChild(b);
+  }
+  // important banners
+  importantNotes().forEach(n=>{
+    const b=el('div','banner');
+    b.innerHTML='<span style="font-size:20px">⭐</span><div class="bt"><b></b><span class="s"></span></div>';
+    b.querySelector('b').textContent=n.title||'Untitled'; b.querySelector('.s').textContent=noteLine(n);
+    b.onclick=()=>openEditor(n.id); box.appendChild(b);
+  });
+  // today / overdue
+  const dn=dueNotes();
+  if(dn.length){
+    const t=el('div','todaybox'); t.innerHTML='<h4>📅 Ajker kaj</h4>';
+    dn.forEach(n=>{ const r=el('div','tr'); const od=n.due<todayStr();
+      const sp=el('span'); sp.textContent=n.title||'Untitled'; const em=el('em',od?'od':''); em.textContent=dueLabel(n.due);
+      r.appendChild(sp); r.appendChild(em); r.onclick=()=>openEditor(n.id); t.appendChild(r); });
+    box.appendChild(t);
+  }
+}
+function showDailyPopup(){
+  const td=todayStr(); if(settings.lastPopup===td) return;
+  const imp=importantNotes(), due=dueNotes();
+  if(!imp.length&&!due.length) return;
+  settings.lastPopup=td; saveSettings();
+  sheet('📢 Aj ki mone rakhben', c=>{
+    const add=(n,tag)=>{ const r=el('div'); r.style.cssText='padding:11px 4px;border-bottom:1px solid var(--line);cursor:pointer';
+      const t=el('b'); t.textContent=(tag||'')+(n.title||'Untitled'); r.appendChild(t);
+      const d=el('div'); d.style.cssText='font-size:13px;color:var(--ink-soft);margin-top:2px'; d.textContent=noteLine(n); r.appendChild(d);
+      r.onclick=()=>{ closeSheet(); openEditor(n.id); }; c.appendChild(r); };
+    imp.forEach(n=>add(n,'⭐ ')); due.filter(n=>!n.important).forEach(n=>add(n,'📅 '+dueLabel(n.due)+' · '));
+    const ok=el('button','primary'); ok.textContent='Dekhlam'; ok.style.marginTop='14px'; ok.onclick=closeSheet; c.appendChild(ok);
   });
 }
-function driveConnect(cb){
-  const cid=(settings.driveClientId||'').trim();
-  if(!cid){ toast('Add your Google Client ID first'); return; }
-  loadGIS().then(()=>{
-    driveTokenClient=google.accounts.oauth2.initTokenClient({
-      client_id:cid,
-      scope:'https://www.googleapis.com/auth/drive.file',
-      callback:(resp)=>{ if(resp && resp.access_token){ driveToken=resp.access_token; cb(); } else toast('Google sign-in failed'); }
+function openDueSheet(n){
+  sheet('Due date', c=>{
+    const row=el('div','row'); row.style.margin='4px 0 12px';
+    const inp=el('input','field'); inp.type='date'; inp.value=n.due||''; row.appendChild(inp); c.appendChild(row);
+    const sv=el('button','primary'); sv.textContent='Save'; sv.onclick=()=>{ n.due=inp.value||null; n.updatedAt=now(); DB.put('notes',n); closeSheet(); toast(n.due?'Due '+dueLabel(n.due):'Due date cleared'); }; c.appendChild(sv);
+    if(n.due){ const cl=el('button','ghost'); cl.textContent='Clear due date'; cl.onclick=()=>{ n.due=null; n.updatedAt=now(); DB.put('notes',n); closeSheet(); toast('Due date cleared'); }; c.appendChild(cl); }
+  });
+}
+/* ---- PIN ---- */
+async function hashPin(pin){
+  try{ if(crypto&&crypto.subtle){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('sn7:'+pin)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); } }catch(e){}
+  return 'p:'+btoa('sn7:'+pin);
+}
+function askPin(title,ok){
+  sheet(title, c=>{
+    const inp=el('input','field'); inp.type='password'; inp.inputMode='numeric'; inp.autocomplete='off'; inp.placeholder='PIN'; inp.style.cssText='width:100%;margin:6px 0 8px;font-size:20px;letter-spacing:6px;text-align:center';
+    const msg=el('div'); msg.style.cssText='color:var(--danger);font-size:13px;min-height:18px;margin-bottom:6px;text-align:center';
+    const go=el('button','primary'); go.textContent='OK';
+    const run=async()=>{ if(!inp.value) return; const h=await hashPin(inp.value); if(h===settings.pinHash){ closeSheet(); ok(); } else { msg.textContent='Wrong PIN'; inp.value=''; } };
+    go.onclick=run; inp.onkeydown=e=>{ if(e.key==='Enter') run(); };
+    c.appendChild(inp); c.appendChild(msg); c.appendChild(go); setTimeout(()=>inp.focus(),50);
+  });
+}
+function setPinFlow(done){
+  const ask=(title,cb)=>sheet(title,c=>{
+    const inp=el('input','field'); inp.type='password'; inp.inputMode='numeric'; inp.autocomplete='off'; inp.placeholder='4+ digits'; inp.style.cssText='width:100%;margin:6px 0 10px;font-size:20px;letter-spacing:6px;text-align:center';
+    const go=el('button','primary'); go.textContent='Next';
+    const run=()=>{ if(inp.value.length<4){ toast('PIN must be 4+ digits'); return; } cb(inp.value); };
+    go.onclick=run; inp.onkeydown=e=>{ if(e.key==='Enter') run(); };
+    c.appendChild(inp); c.appendChild(go); setTimeout(()=>inp.focus(),50);
+  });
+  ask('Set a new PIN',p1=>ask('Repeat the PIN',async p2=>{
+    if(p1!==p2){ closeSheet(); toast('PINs did not match'); return; }
+    settings.pinHash=await hashPin(p1); saveSettings(); closeSheet(); toast('PIN saved'); if(done) done();
+  }));
+}
+function toggleLock(n){
+  if(n.locked){
+    askPin('Enter PIN to remove lock',()=>{ n.locked=false; n.updatedAt=now(); DB.put('notes',n); toast('Lock removed'); });
+    return;
+  }
+  const doLock=()=>{ n.locked=true; unlockedIds.add(n.id); n.updatedAt=now(); DB.put('notes',n); closeSheet(); toast('Locked'); };
+  if(!settings.pinHash) setPinFlow(doLock); else doLock();
+}
+/* ---- Templates ---- */
+const TEMPLATES=[
+  {icon:'📅',name:'Weekly plan',type:'checklist',title:'Weekly plan',items:['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday']},
+  {icon:'🛒',name:'Shopping list',type:'checklist',title:'Shopping list',items:['','','']},
+  {icon:'✅',name:'Ajker kaj (To-do)',type:'checklist',title:'Ajker kaj',due:true,items:['','','']},
+  {icon:'💰',name:'Daily hishab',type:'sheet',title:'Daily hishab',rows:[['Bazar',''],['Transport',''],['Onno','']]},
+  {icon:'📝',name:'Meeting notes',type:'text',title:'Meeting notes',html:'<b>Date:</b> <br><b>Who:</b> <br><br><b>Discussion</b><br>• <br><br><b>Decisions</b><br>• <br><br><b>Action items</b><br>• '},
+  {icon:'⭐',name:'Important info',type:'text',title:'Important',important:true,html:'<b>Mone rakhte hobe:</b><br>'}
+];
+function openTemplates(){
+  sheet('New from template', c=>{
+    const list=el('div','menu-list');
+    TEMPLATES.forEach(t=>{
+      const b=el('button'); b.innerHTML='<span>'+t.icon+'</span> '+t.name;
+      b.onclick=()=>{ closeSheet(); newNote(t.type,n=>{
+        n.title=t.title;
+        if(t.type==='text') n.content=t.html||'';
+        else if(t.type==='sheet') n.items=t.rows.map(r=>({cells:{c_desc:r[0],c_amt:r[1]}}));
+        else n.items=t.items.map(x=>({text:x,qty:'',price:'',done:false}));
+        if(t.important) n.important=true;
+        if(t.due) n.due=todayStr();
+      }); };
+      list.appendChild(b);
     });
-    driveTokenClient.requestAccessToken({prompt: driveToken?'':'consent'});
-  }).catch(()=>toast('Could not reach Google (are you online?)'));
-}
-async function driveFindFile(){
-  const q=encodeURIComponent("name='notes-backup.json' and trashed=false");
-  const r=await fetch('https://www.googleapis.com/drive/v3/files?spaces=drive&fields=files(id,name)&q='+q,{headers:{Authorization:'Bearer '+driveToken}});
-  const d=await r.json(); return (d.files&&d.files[0])||null;
-}
-function driveBackup(){
-  driveConnect(async ()=>{
-    try{
-      const content=JSON.stringify({app:'notes',version:2,exportedAt:new Date().toISOString(),notes,folders,tags},null,2);
-      const existing=await driveFindFile();
-      let resp;
-      if(existing){
-        resp=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+existing.id+'?uploadType=media',{method:'PATCH',headers:{Authorization:'Bearer '+driveToken,'Content-Type':'application/json'},body:content});
-      } else {
-        const boundary='notes'+Date.now();
-        const meta={name:'notes-backup.json',mimeType:'application/json'};
-        const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(meta)+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+content+'\r\n--'+boundary+'--';
-        resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{Authorization:'Bearer '+driveToken,'Content-Type':'multipart/related; boundary='+boundary},body});
-      }
-      toast(resp.ok?'Backed up to Drive':'Backup failed ('+resp.status+')');
-    }catch(e){ toast('Backup failed'); }
-  });
-}
-function driveRestore(){
-  driveConnect(async ()=>{
-    try{
-      const f=await driveFindFile();
-      if(!f){ toast('No backup found in your Drive'); return; }
-      const r=await fetch('https://www.googleapis.com/drive/v3/files/'+f.id+'?alt=media',{headers:{Authorization:'Bearer '+driveToken}});
-      await importParsed(await r.json());
-    }catch(e){ toast('Restore failed'); }
+    c.appendChild(list);
   });
 }
 
@@ -1273,21 +1504,33 @@ function openThemeSheet(){
     const modeRow=el('div','modetoggle'); modeRow.style.margin='8px 0 16px';
     [['light','Light'],['dark','Dark']].forEach(([m,label])=>{ const b=el('button',settings.mode===m?'on':''); b.textContent=label; b.onclick=()=>{ settings.mode=m; applyTheme(); saveSettings(); modeRow.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }; modeRow.appendChild(b); });
     c.appendChild(modeRow);
+    const nl=el('span','lab'); nl.style.cssText='font-size:12.5px;font-weight:700;color:var(--ink-soft)'; nl.textContent='Night style (used in Dark mode)'; c.appendChild(nl);
+    const ng=el('div'); ng.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:8px 0 16px';
+    Object.entries(NIGHTS).forEach(([key,nt])=>{
+      const b=el('button'); b.style.cssText='display:flex;flex-direction:column;align-items:center;gap:6px;padding:9px 4px;border-radius:12px;border:2px solid '+(settings.night===key?'var(--accent)':'var(--line)')+';background:var(--surface);font-weight:700;font-size:12px;color:var(--ink)';
+      b.innerHTML='<span style="width:100%;height:26px;border-radius:8px;border:1px solid #555;background:'+nt.canvas+';display:block;position:relative"><span style="position:absolute;left:6px;right:6px;top:6px;height:12px;border-radius:5px;background:'+nt.surface+'"></span></span>'+nt.name;
+      b.onclick=()=>{ settings.night=key; settings.mode='dark'; applyTheme(); saveSettings(); openThemeSheet(); };
+      ng.appendChild(b);
+    });
+    c.appendChild(ng);
 
     const l2=el('span','lab'); l2.style.cssText='font-size:12.5px;font-weight:700;color:var(--ink-soft)'; l2.textContent='Color theme'; c.appendChild(l2);
     const grid=el('div'); grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 20px';
     Object.entries(PALETTES).forEach(([key,p])=>{ const b=el('button'); b.style.cssText='display:flex;align-items:center;gap:10px;padding:11px;border-radius:12px;border:2px solid '+(settings.theme===key?p.a:'var(--line)')+';background:var(--surface);font-weight:700;color:var(--ink)'; b.innerHTML='<span style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,'+p.a+','+p.b+')"></span>'+p.name; b.onclick=()=>{ settings.theme=key; applyTheme(); saveSettings(); grid.querySelectorAll('button').forEach(x=>x.style.borderColor='var(--line)'); b.style.borderColor=p.a; }; grid.appendChild(b); });
     c.appendChild(grid);
 
+    const lp=el('span','lab'); lp.style.cssText='font-size:12.5px;font-weight:700;color:var(--ink-soft)'; lp.textContent='App PIN (for locked notes)'; c.appendChild(lp);
+    const pinNote=el('div'); pinNote.style.cssText='font-size:12px;color:var(--ink-soft);margin:6px 2px 8px;line-height:1.5'; pinNote.textContent='Hides locked notes behind a PIN. It is a privacy lock, not encryption — keep the PIN safe; if you forget it, remove the lock from Settings after clearing site data.'; c.appendChild(pinNote);
+    const bp=el('button','ghost'); bp.textContent=settings.pinHash?'Change PIN':'Set PIN'; bp.onclick=()=>{ if(settings.pinHash) askPin('Current PIN',()=>setPinFlow(()=>openThemeSheet())); else setPinFlow(()=>openThemeSheet()); }; c.appendChild(bp);
+    if(settings.pinHash){ const br=el('button','ghost'); br.textContent='Remove PIN (unlocks all notes)'; br.onclick=()=>askPin('Current PIN',()=>{ settings.pinHash=''; notes.forEach(n=>{ if(n.locked){ n.locked=false; DB.put('notes',n); } }); saveSettings(); render(); toast('PIN removed'); openThemeSheet(); }); c.appendChild(br); }
+    const lsp=el('div'); lsp.style.height='14px'; c.appendChild(lsp);
+
     const l3=el('span','lab'); l3.style.cssText='font-size:12.5px;font-weight:700;color:var(--ink-soft)'; l3.textContent='Backup (file)'; c.appendChild(l3);
     const exp=el('button','primary'); exp.textContent='Export all notes (.json)'; exp.onclick=exportData; c.appendChild(exp);
     const imp=el('button','ghost'); imp.textContent='Import from a backup file'; imp.onclick=pickImportFile; c.appendChild(imp);
 
-    const l4=el('span','lab'); l4.style.cssText='font-size:12.5px;font-weight:700;color:var(--ink-soft);display:block;margin-top:16px'; l4.textContent='Google Drive backup'; c.appendChild(l4);
-    const cidRow=el('div','row'); cidRow.style.margin='8px 0 4px'; const cid=el('input','field'); cid.placeholder='Google OAuth Client ID'; cid.value=settings.driveClientId||''; cid.oninput=()=>{ settings.driveClientId=cid.value.trim(); saveSettings(); }; cidRow.appendChild(cid); c.appendChild(cidRow);
-    const help=el('div'); help.style.cssText='font-size:12px;color:var(--ink-soft);margin:0 2px 10px;line-height:1.5'; help.textContent='One-time setup, works online only. Paste your Client ID above (see the setup steps I gave you).'; c.appendChild(help);
-    const bBk=el('button','primary'); bBk.textContent='Back up to Drive'; bBk.onclick=driveBackup; c.appendChild(bBk);
-    const bRs=el('button','ghost'); bRs.textContent='Restore from Drive'; bRs.onclick=driveRestore; c.appendChild(bRs);
+    const shr=el('button','primary'); shr.textContent='Share backup (WhatsApp, Messenger, Mail…)'; shr.onclick=shareBackup; c.appendChild(shr);
+    const ver=el('div'); ver.style.cssText='text-align:center;font-size:12px;color:var(--ink-soft);margin-top:18px'; ver.textContent='Shishir\'s Note · v7'; c.appendChild(ver);
   });
 }
 
