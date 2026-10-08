@@ -1,11 +1,14 @@
 /* Notes app service worker — offline app shell */
-const CACHE = 'notes-v5';
+const CACHE = 'notes-v6';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './auth.js',
+  './auth.bundle.js',
+  './firebase-config.js'
 ];
 
 self.addEventListener('install', e => {
@@ -26,7 +29,8 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;                 // only cache reads
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;  // let Google/API calls hit the network directly
+  if (url.origin !== self.location.origin) return;  // let Google/Firebase calls hit the network directly
+  if (url.pathname.endsWith('/admin.html') || url.pathname.endsWith('/admin.bundle.js')) return; // admin is online-only
 
   e.respondWith(
     caches.match(req).then(hit =>

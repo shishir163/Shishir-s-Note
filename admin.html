@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Admin</title>
+<style>
+  :root{--bg:#f4f5f9;--sf:#fff;--ink:#23252f;--soft:#6b6f80;--line:#e6e8f0;--ac:#6d48e5;--ok:#12a594;--bad:#e5484d}
+  @media (prefers-color-scheme:dark){:root{--bg:#13141b;--sf:#1e2029;--ink:#e9eaf2;--soft:#9aa0b4;--line:#2f3242}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  #root{max-width:640px;margin:0 auto;padding:16px}
+  .card{background:var(--sf);border:1px solid var(--line);border-radius:16px;padding:22px;margin-top:40px;text-align:center}
+  .card h2{margin:0 0 6px}.sub{color:var(--soft);margin:0 0 14px}
+  input{width:100%;padding:12px;margin-bottom:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:15px;outline:none}
+  .btn{width:100%;padding:12px;border:none;border-radius:12px;background:var(--ac);color:#fff;font-weight:700;font-size:15px;cursor:pointer}
+  .msg{color:var(--bad);min-height:18px;font-size:13px;margin-bottom:8px}
+  .top{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:18px}.sp{flex:1}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+  .stats div{background:var(--sf);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;color:var(--soft);font-size:12px}
+  .stats b{display:block;font-size:22px;color:var(--ink)}
+  .chips{display:flex;gap:8px;margin-bottom:12px}
+  .chip{padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--sf);color:var(--soft);font-weight:600;text-transform:capitalize;cursor:pointer}
+  .chip.on{background:var(--ac);color:#fff;border-color:transparent}
+  .u{background:var(--sf);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:10px}
+  .row{display:flex;align-items:center;gap:8px}.em{flex:1;font-weight:650;word-break:break-all}
+  .tag{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px}
+  .tag.a{background:#d6f5f0;color:#0b7c6f}.tag.p{background:#ffedd5;color:#b45309}
+  .dv{color:var(--soft);font-size:13px;margin:6px 0 10px}
+  .acts{display:flex;gap:8px}
+  .mini{padding:8px 13px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-weight:700;font-size:13px;cursor:pointer}
+  .mini.ok{background:var(--ok);color:#fff;border-color:transparent}
+  .mini.warn{color:var(--bad)}
+  .mini:disabled{opacity:.45}
+</style>
+</head>
+<body>
+<div id="root"><div class="card"><p class="sub">Loading…</p></div></div>
+<script src="firebase-config.js"></script>
+<script src="admin.bundle.js"></script>
+</body>
+</html>
