@@ -293,6 +293,14 @@
   .todaybox .tr{display:flex;gap:8px;padding:7px 0;border-top:1px solid var(--line);cursor:pointer;font-size:14px}.todaybox .tr:first-of-type{border-top:none}
   .todaybox .tr em{margin-left:auto;font-style:normal;font-size:12px;font-weight:700;color:var(--accent)}.todaybox .tr em.od{color:var(--danger)}
   .duechip{font-weight:700;font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}.duechip.od{background:var(--danger-soft);color:var(--danger)}
+  .iconbtn:disabled{opacity:.3}
+  #undobtn,#redobtn,.ed-head .uh{font-size:20px;font-weight:700;color:var(--ink)}
+  .ed-head .uh{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--canvas)}.ed-head .uh:disabled{opacity:.3}
+  .card{touch-action:pan-y;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;transition:transform .15s}
+  .cardact{position:absolute;inset:0;z-index:5;display:flex;gap:8px;align-items:stretch;padding:8px;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(3px)}
+  .cardact button{flex:1;border-radius:12px;font-weight:700;font-size:12.5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#fff}
+  .cardact button span{font-size:20px}
+  .cardact .a1{background:var(--accent)}.cardact .a2{background:#0ea5e9}.cardact .a3{background:var(--danger)}
   mark{background:#fde047;color:#1a1a1a;border-radius:3px;padding:0 2px}
   .cloud{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;box-shadow:var(--shadow)}
   .cloud button{font-weight:600;color:#fff;padding:3px 9px;border-radius:999px;line-height:1.25}
@@ -332,7 +340,9 @@
   <div class="brand">
     <div class="logo">N</div>
     <h1>Notes</h1>
-    <button class="iconbtn" id="calcbtn" title="Calculator" style="margin-left:auto">
+    <button class="iconbtn" id="undobtn" title="Undo" style="margin-left:auto" disabled>↶</button>
+    <button class="iconbtn" id="redobtn" title="Redo" disabled>↷</button>
+    <button class="iconbtn" id="calcbtn" title="Calculator">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8 7h8"/><path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01"/></svg>
     </button>
     <button class="iconbtn" id="themebtn" title="Appearance">
@@ -416,15 +426,29 @@ const DB = (() => {
       }catch(e){res([])}
     });
   }
-  function put(store,obj){
+  function _put(store,obj){
     if(useMem){ const a=mem[store]; const i=a.findIndex(x=>x.id===obj.id); if(i>=0)a[i]=obj;else a.push(obj); return Promise.resolve(); }
     return new Promise((res)=>{ try{ const tx=db.transaction(store,'readwrite').objectStore(store).put(obj); tx.onsuccess=()=>res(); tx.onerror=()=>res(); }catch(e){res()} });
   }
-  function del(store,id){
+  function _del(store,id){
     if(useMem){ mem[store]=mem[store].filter(x=>x.id!==id); return Promise.resolve(); }
     return new Promise((res)=>{ try{ const tx=db.transaction(store,'readwrite').objectStore(store).delete(id); tx.onsuccess=()=>res(); tx.onerror=()=>res(); }catch(e){res()} });
   }
-  return {open,all,put,del,isMem:()=>useMem};
+  // cloud-sync hooks (only active for the admin account; see auth bundle)
+  function put(store,obj){
+    const H=window.SNHook, sync=H&&store!=='settings';
+    if(sync) H.pre(store,obj);
+    const r=_put(store,obj);
+    if(sync) H.post(store,obj);
+    return r;
+  }
+  function del(store,id){
+    const H=window.SNHook;
+    const r=_del(store,id);
+    if(H&&store!=='settings') H.del(store,id);
+    return r;
+  }
+  return {open,all,put,del,putRaw:_put,delRaw:_del,isMem:()=>useMem};
 })();
 
 /* =========================================================
@@ -470,6 +494,7 @@ async function boot(){
   if(!settings.lastBackup){ settings.lastBackup=now(); saveSettings(); }
   render();
   showDailyPopup();
+  window.SNApp.ready=true; window.dispatchEvent(new Event('sn-app-ready'));
   if(DB.isMem()) toast('Preview mode — data saves for real on your site');
 }
 
@@ -664,7 +689,7 @@ function card(n){
   if(!n.deletedAt){
     const pin=el('button','pinbtn'+(n.pinned?' on':''));
     pin.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="'+(n.pinned?'currentColor':'none')+'" stroke="currentColor" stroke-width="2"><path d="M12 17v5M9 3h6l-1 7 3 3H7l3-3-1-7z"/></svg>';
-    pin.onclick=e=>{e.stopPropagation(); n.pinned=!n.pinned; n.updatedAt=now(); DB.put('notes',n); render();};
+    pin.onclick=e=>{e.stopPropagation(); const bf=snap(n); n.pinned=!n.pinned; n.updatedAt=now(); DB.put('notes',n); recordOp(n.pinned?'Pin':'Unpin',n.id,bf,n); render();};
     top.appendChild(pin);
   }
   c.appendChild(top);
@@ -722,12 +747,13 @@ function card(n){
   if(n.deletedAt){
     const acts=el('div','trashacts');
     const r=el('button','restore'); r.textContent='Restore';
-    r.onclick=e=>{e.stopPropagation(); n.deletedAt=null; n.updatedAt=now(); DB.put('notes',n); render(); toast('Restored');};
+    r.onclick=e=>{e.stopPropagation(); const bf=snap(n); n.deletedAt=null; n.updatedAt=now(); DB.put('notes',n); recordOp('Restore',n.id,bf,n); render(); toast('Restored');};
     const p=el('button','purge'); p.textContent='Delete forever';
     p.onclick=async e=>{e.stopPropagation(); await DB.del('notes',n.id); notes=notes.filter(x=>x.id!==n.id); render(); toast('Deleted forever');};
     acts.appendChild(r); acts.appendChild(p); c.appendChild(acts);
   } else {
     c.onclick=()=>openEditor(n.id);
+    attachCardGestures(c,n);
   }
   return c;
 }
@@ -752,6 +778,126 @@ function newNote(type,init){
 ========================================================= */
 let editing=null, saveTimer=null;
 
+
+/* =========================================================
+   v8 — Undo / Redo + card quick actions (swipe or long-press)
+========================================================= */
+const snap=o=>o?JSON.parse(JSON.stringify(o)):null;
+const undoStack=[], redoStack=[];
+function recordOp(label,id,before,after){
+  undoStack.push({label,id,before:snap(before),after:snap(after)});
+  if(undoStack.length>60) undoStack.shift();
+  redoStack.length=0; updateUndoUI();
+}
+function updateUndoUI(){
+  const u=document.getElementById('undobtn'), r=document.getElementById('redobtn');
+  if(u) u.disabled=!undoStack.length; if(r) r.disabled=!redoStack.length;
+}
+async function applyNoteState(id,state){
+  const i=notes.findIndex(x=>x.id===id);
+  if(state===null){ if(i>=0){ notes.splice(i,1); } try{ await DB.del('notes',id); }catch(e){} }
+  else { const c=snap(state); if(i>=0) notes[i]=c; else notes.push(c); DB.put('notes',c); }
+}
+async function undoOp(){
+  if(document.getElementById('editor')) return;
+  const op=undoStack.pop(); if(!op){ toast('Nothing to undo'); return; }
+  await applyNoteState(op.id,op.before); redoStack.push(op); updateUndoUI(); render(); toast('Undone: '+op.label);
+}
+async function redoOp(){
+  if(document.getElementById('editor')) return;
+  const op=redoStack.pop(); if(!op){ toast('Nothing to redo'); return; }
+  await applyNoteState(op.id,op.after); undoStack.push(op); updateUndoUI(); render(); toast('Redone: '+op.label);
+}
+function duplicateNote(n){
+  const copy={...n,id:uid(),title:(n.title||'Untitled')+' copy',items:(n.items||[]).map(i=>({...i, cells: i.cells?{...i.cells}:undefined})),columns:n.columns?n.columns.map(cl=>({...cl})):undefined,createdAt:now(),updatedAt:now(),pinned:false};
+  notes.push(copy); DB.put('notes',copy); recordOp('Duplicate',copy.id,null,copy); return copy;
+}
+function trashFromList(n){
+  const before=snap(n); n.deletedAt=now(); n.pinned=false; n.updatedAt=now(); DB.put('notes',n);
+  recordOp('Delete',n.id,before,n); render(); toast('Moved to Trash · ↶ to undo');
+}
+/* in-editor history (every edit step, all note types) */
+let edHist=[], edIdx=-1, edTimer=null, edBefore=null;
+function edSnap(){ const o=snap(editing); delete o.updatedAt; return JSON.stringify(o); }
+function edBtns(){
+  const u=document.getElementById('edUndo'), r=document.getElementById('edRedo');
+  if(u) u.disabled=edIdx<=0; if(r) r.disabled=edIdx>=edHist.length-1;
+}
+function edPush(){
+  clearTimeout(edTimer); edTimer=null; if(!editing) return;
+  const sn=edSnap(); if(edHist[edIdx]===sn) return;
+  edHist=edHist.slice(0,edIdx+1); edHist.push(sn); if(edHist.length>100) edHist.shift();
+  edIdx=edHist.length-1; edBtns();
+}
+function edStep(d){
+  if(!editing) return; if(edTimer) edPush();
+  const ni=edIdx+d; if(ni<0||ni>=edHist.length) return;
+  edIdx=ni; const o=JSON.parse(edHist[ni]);
+  Object.keys(editing).forEach(k=>delete editing[k]); Object.assign(editing,o); editing.updatedAt=now();
+  buildEditorBody(); edBtns(); clearTimeout(saveTimer); DB.put('notes',editing); flashSaved();
+}
+/* card quick actions overlay */
+function closeCardActs(){ document.querySelectorAll('.cardact').forEach(x=>x.remove()); }
+function showCardActs(card,n){
+  closeCardActs();
+  const o=el('div','cardact');
+  const mk=(cls,ic,label,fn)=>{ const b=el('button',cls); b.innerHTML='<span>'+ic+'</span>'+label; b.onclick=e=>{ e.stopPropagation(); closeCardActs(); fn(); }; return b; };
+  o.appendChild(mk('a1','✏️','Edit',()=>openEditor(n.id)));
+  o.appendChild(mk('a2','⧉','Duplicate',()=>{ duplicateNote(n); render(); toast('Duplicated · ↶ to undo'); }));
+  o.appendChild(mk('a3','🗑️','Delete',()=>trashFromList(n)));
+  o.onclick=e=>{ e.stopPropagation(); closeCardActs(); };
+  card.appendChild(o);
+  if(navigator.vibrate) try{ navigator.vibrate(15); }catch(e){}
+}
+function attachCardGestures(c,n){
+  let sx=0,sy=0,tm=null,moved=false,fired=false;
+  const clear=()=>{ clearTimeout(tm); tm=null; c.style.transform=''; };
+  c.addEventListener('contextmenu',e=>e.preventDefault());
+  c.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.pinbtn,.cardact')) return;
+    sx=e.clientX; sy=e.clientY; moved=false; fired=false;
+    clearTimeout(tm); tm=setTimeout(()=>{ fired=true; showCardActs(c,n); },520);
+  });
+  c.addEventListener('pointermove',e=>{
+    if(tm===null&&!moved) return;
+    const dx=e.clientX-sx, dy=e.clientY-sy;
+    if(Math.abs(dx)>8||Math.abs(dy)>8){ clearTimeout(tm); tm=null; moved=true; }
+    if(!fired && Math.abs(dx)>10 && Math.abs(dx)>Math.abs(dy)*1.5) c.style.transform='translateX('+Math.max(-50,Math.min(50,dx/2))+'px)';
+    if(!fired && Math.abs(dx)>60 && Math.abs(dy)<35){ fired=true; clear(); showCardActs(c,n); }
+  });
+  const end=()=>{ clearTimeout(tm); tm=null; c.style.transform=''; };
+  c.addEventListener('pointerup',end); c.addEventListener('pointercancel',end); c.addEventListener('pointerleave',end);
+  c.addEventListener('click',e=>{ if(fired||moved){ e.stopImmediatePropagation(); e.preventDefault(); fired=false; moved=false; } },true);
+}
+document.addEventListener('click',e=>{ if(!e.target.closest('.cardact')) closeCardActs(); });
+document.getElementById('undobtn').onclick=undoOp;
+document.getElementById('redobtn').onclick=redoOp;
+
+
+/* =========================================================
+   Cloud sync bridge (used by the auth bundle, admin account only)
+========================================================= */
+(function(){
+  const arr=st=>st==='notes'?notes:st==='folders'?folders:st==='tags'?tags:[];
+  let rt=null;
+  window.SNApp={
+    ready:false,
+    all:st=>arr(st).slice(),
+    getOne:(st,id)=>arr(st).find(x=>x.id===id),
+    apply(st,o){
+      if(st==='notes'&&typeof editing!=='undefined'&&editing&&editing.id===o.id) return;
+      const a=arr(st), i=a.findIndex(x=>x.id===o.id);
+      if(i>=0) a[i]=o; else a.push(o);
+      DB.putRaw(st,o); window.SNApp.refresh();
+    },
+    remove(st,id){
+      const a=arr(st), i=a.findIndex(x=>x.id===id);
+      if(i>=0) a.splice(i,1);
+      DB.delRaw(st,id); window.SNApp.refresh();
+    },
+    refresh(){ clearTimeout(rt); rt=setTimeout(()=>{ if(!document.getElementById('editor')) render(); },120); }
+  };
+})();
 const unlockedIds=new Set();
 function openEditor(id){
   const n=notes.find(x=>x.id===id); if(!n) return;
@@ -760,11 +906,14 @@ function openEditor(id){
 }
 function _openEditor(id){
   editing = notes.find(n=>n.id===id); if(!editing) return;
+  edBefore=snap(editing); edHist=[edSnap()]; edIdx=0; clearTimeout(edTimer); edTimer=null;
   const ov=el('div','overlay'); ov.id='editor';
   ov.innerHTML = `
     <div class="ed-head">
       <button class="back" id="edBack"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
       <span class="saved" id="edSaved">Saved</span>
+      <button class="uh" id="edUndo" title="Undo" disabled>↶</button>
+      <button class="uh" id="edRedo" title="Redo" disabled>↷</button>
       <button class="menu" id="edCalc" title="Calculator"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8 7h8"/><path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01"/></svg></button>
       <button class="menu" id="edMenu"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
     </div>
@@ -773,6 +922,7 @@ function _openEditor(id){
   savedSel=null; lastItemField=null;
   $('#edBack').onclick=closeEditor;
   $('#edCalc').onclick=()=>openCalc(true);
+  $('#edUndo').onclick=()=>edStep(-1); $('#edRedo').onclick=()=>edStep(1);
   $('#edMenu').onclick=openNoteMenu;
   buildEditorBody();
 }
@@ -1107,6 +1257,7 @@ function buildMetaRefresh(){
 
 function scheduleSave(){
   editing.updatedAt=now();
+  clearTimeout(edTimer); edTimer=setTimeout(edPush,600);
   clearTimeout(saveTimer);
   saveTimer=setTimeout(async()=>{ await DB.put('notes',editing); flashSaved(); },400);
 }
@@ -1114,7 +1265,13 @@ function flashSaved(){const s=$('#edSaved'); if(!s)return; s.classList.add('show
 
 function closeEditor(){
   clearTimeout(saveTimer);
-  if(editing) DB.put('notes',editing);
+  if(editing){
+    if(edTimer) edPush();
+    DB.put('notes',editing); unlockedIds.delete(editing.id);
+    const strip=o=>{const c=snap(o); if(c) delete c.updatedAt; return JSON.stringify(c);};
+    if(edBefore && strip(edBefore)!==strip(editing)) recordOp('Edit',editing.id,edBefore,editing);
+    edBefore=null; clearTimeout(edTimer);
+  }
   document.removeEventListener('selectionchange',syncToolbar);
   const ov=$('#editor'); if(ov)ov.remove();
   editing=null; render();
@@ -1127,7 +1284,7 @@ function openNoteMenu(){
     const list=el('div','menu-list');
     const mk=(label,icon,fn,danger)=>{const b=el('button',danger?'danger':'');b.innerHTML='<span>'+icon+'</span> '+label;b.onclick=fn;return b;};
     list.appendChild(mk(n.archived?'Unarchive':'Archive','🗂️',()=>{n.archived=!n.archived;n.updatedAt=now();DB.put('notes',n);closeSheet();toast(n.archived?'Archived':'Unarchived');}));
-    list.appendChild(mk('Duplicate','⧉',()=>{const copy={...n,id:uid(),title:(n.title||'Untitled')+' copy',items:(n.items||[]).map(i=>({...i, cells: i.cells?{...i.cells}:undefined})),columns:n.columns?n.columns.map(cl=>({...cl})):undefined,createdAt:now(),updatedAt:now(),pinned:false};notes.push(copy);DB.put('notes',copy);closeSheet();toast('Duplicated');}));
+    list.appendChild(mk('Duplicate','⧉',()=>{duplicateNote(n);closeSheet();toast('Duplicated');}));
     list.appendChild(mk(n.important?'Remove from Important':'Mark as Important','⭐',()=>{n.important=!n.important;n.updatedAt=now();DB.put('notes',n);closeSheet();toast(n.important?'Marked important':'Removed');}));
     list.appendChild(mk(n.due?'Due: '+dueLabel(n.due)+' (change)':'Set due date','📅',()=>openDueSheet(n)));
     list.appendChild(mk(n.locked?'Remove lock':'Lock with PIN','🔒',()=>toggleLock(n)));
@@ -1467,7 +1624,7 @@ function toggleLock(n){
     askPin('Enter PIN to remove lock',()=>{ n.locked=false; n.updatedAt=now(); DB.put('notes',n); toast('Lock removed'); });
     return;
   }
-  const doLock=()=>{ n.locked=true; unlockedIds.add(n.id); n.updatedAt=now(); DB.put('notes',n); closeSheet(); toast('Locked'); };
+  const doLock=()=>{ n.locked=true; n.updatedAt=now(); DB.put('notes',n); closeSheet(); toast('Locked'); };
   if(!settings.pinHash) setPinFlow(doLock); else doLock();
 }
 /* ---- Templates ---- */
@@ -1530,7 +1687,8 @@ function openThemeSheet(){
     const imp=el('button','ghost'); imp.textContent='Import from a backup file'; imp.onclick=pickImportFile; c.appendChild(imp);
 
     const shr=el('button','primary'); shr.textContent='Share backup (WhatsApp, Messenger, Mail…)'; shr.onclick=shareBackup; c.appendChild(shr);
-    const ver=el('div'); ver.style.cssText='text-align:center;font-size:12px;color:var(--ink-soft);margin-top:18px'; ver.textContent='Shishir\'s Note · v7'; c.appendChild(ver);
+    if(window.SNSyncOn){ const sy=el('div'); sy.style.cssText='text-align:center;font-size:12.5px;color:var(--accent);font-weight:700;margin-top:14px'; sy.textContent='☁️ Cloud sync is ON for this account'; c.appendChild(sy); }
+    const ver=el('div'); ver.style.cssText='text-align:center;font-size:12px;color:var(--ink-soft);margin-top:18px'; ver.textContent='Shishir\'s Note · v9'; c.appendChild(ver);
   });
 }
 
